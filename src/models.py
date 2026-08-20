@@ -50,7 +50,7 @@ class Encoder(nn.Module):
 
         layers = []
         in_channels = 1
-        out_channels = 16
+        out_channels = 32
 
         self.size = hparams.get("image_size", 28)
         latent_channels = hparams.get("latent_channels", 8)
@@ -210,7 +210,7 @@ class Classifier(nn.Module):
         input_size = hparams.get("latent_dim", 16)
 
         log2_input = int(np.ceil(np.log2(input_size)))
-        sizes = [input_size, 2 ** log2_input, 2 ** (log2_input + 1), hparams.get("num_classes", 10)]
+        sizes = [input_size, 2 ** (log2_input + 1), 2 ** (log2_input + 2), hparams.get("num_classes", 10)]
 
         layers = []
         
