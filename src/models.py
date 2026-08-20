@@ -45,19 +45,26 @@ class ResBlock(nn.Module):
 
 
 class Encoder(nn.Module):
-    def __init__(self, image_size=28, latent_channels=8, latent_dim=32):
+    def __init__(self, hparams):
         super().__init__()
 
         layers = []
         in_channels = 1
         out_channels = 16
 
-        num_downsamples = max(0, math.ceil(math.log2(image_size / 4)))
-        self.size = image_size
+        self.size = hparams.get("image_size", 28)
+        latent_channels = hparams.get("latent_channels", 8)
+        latent_dim = hparams.get("latent_dim", 16)
+        p = hparams.get("p", 0.2)
+
+        num_downsamples = max(0, math.ceil(math.log2(self.size / 4)))
 
         for i in range(num_downsamples):
             if i == num_downsamples - 1: out_channels = latent_channels
-            layers.append(ResBlock(in_channels=in_channels, out_channels=out_channels, s=2))
+            layers.extend([
+                ResBlock(in_channels=in_channels, out_channels=out_channels, s=2),
+                nn.Dropout(p),
+            ])
 
             self.size = (self.size + 1) // 2
 
@@ -75,18 +82,21 @@ class Encoder(nn.Module):
 
 
 class Decoder(nn.Module):
-    def __init__(self, latent_channels=8, latent_dim=32, latent_size=4, out_channels=1, image_size=28):
+    def __init__(self, hparams):
         super().__init__()
 
-        self.latent_channels = latent_channels
-        self.latent_size = latent_size
+        self.latent_channels = hparams.get("latent_channels", 8)
+        latent_dim = hparams.get("latent_dim", 16)
+        self.latent_size = hparams.get("latent_size", 4)
+        out_channels = hparams.get("image_channels", 1)
+        image_size = hparams.get("image_size", 28)
 
-        self.from_latent = nn.Linear(latent_dim, latent_channels * latent_size * latent_size)
+        self.from_latent = nn.Linear(latent_dim, self.latent_channels * self.latent_size * self.latent_size)
 
-        sizes = self.get_sizes(latent_size, image_size)
+        sizes = self.get_sizes(self.latent_size, image_size)
         layers = []
 
-        in_channels = latent_channels
+        in_channels = self.latent_channels
         out_channels = 64
 
         for size in sizes[1:]:
@@ -197,18 +207,20 @@ class Classifier(nn.Module):
 
         self.hparams = hparams
         self.device = hparams.get("device", torch.device("cuda" if torch.cuda.is_available() else "cpu"))
-        input_size = hparams.get("latent_dim", 32)
+        input_size = hparams.get("latent_dim", 16)
 
         log2_input = int(np.ceil(np.log2(input_size)))
         sizes = [input_size, 2 ** log2_input, 2 ** (log2_input + 1), hparams.get("num_classes", 10)]
 
         layers = []
         
+        p = hparams.get("p", 0.2)
         for in_size, out_size in zip(sizes[:-2], sizes[1:-1]):
             layers.extend([
                 nn.Linear(in_size, out_size),
                 nn.BatchNorm1d(out_size),
-                nn.ReLU()
+                nn.ReLU(),
+                nn.Dropout(p),
             ])
         
         layers.append(nn.Linear(sizes[-2], sizes[-1]))
