@@ -49,12 +49,12 @@ class Encoder(nn.Module):
         super().__init__()
 
         layers = []
-        in_channels = 1
         out_channels = 32
 
         self.size = hparams.get("image_size", 28)
         latent_channels = hparams.get("latent_channels", 8)
         latent_dim = hparams.get("latent_dim", 16)
+        input_channels = hparams.get("image_channels", 1)
         p = hparams.get("p", 0.2)
 
         num_downsamples = max(0, math.ceil(math.log2(self.size / 4)))
@@ -62,16 +62,16 @@ class Encoder(nn.Module):
         for i in range(num_downsamples):
             if i == num_downsamples - 1: out_channels = latent_channels
             layers.extend([
-                ResBlock(in_channels=in_channels, out_channels=out_channels, s=2),
+                ResBlock(in_channels=input_channels, out_channels=out_channels, s=2),
                 nn.Dropout(p),
             ])
 
             self.size = (self.size + 1) // 2
 
-            in_channels = out_channels
+            input_channels = out_channels
             out_channels = min(out_channels * 2, 256)
         
-        self.to_latent = nn.Linear(in_channels * self.size * self.size, latent_dim)
+        self.to_latent = nn.Linear(input_channels * self.size * self.size, latent_dim)
 
         self.encoder = nn.Sequential(*layers)
 
